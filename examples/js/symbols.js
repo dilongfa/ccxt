@@ -1,49 +1,95 @@
 "use strict";
 
 const ccxt      = require ('../../ccxt.js')
-const asTable   = require ('as-table')
-const log       = require ('ololog')
+    , fs        = require ('fs')
+    , asTable   = require ('as-table').configure ({ delimiter: ' | ' })
+    , log       = require ('ololog').noLocate
+    , ansicolor = require ('ansicolor').nice
+    , verbose   = process.argv.includes ('--verbose')
+    , debug     = process.argv.includes ('--debug')
 
-require ('ansicolor').nice;
+//-----------------------------------------------------------------------------
 
-let printSupportedMarkets = function () {
-    log ('Supported markets:', ccxt.markets.join (', ').green)
+let printSupportedExchanges = function () {
+    log ('Supported exchanges:', ccxt.exchanges.join (', ').green)
 }
 
 let printUsage = function () {
     log ('Usage: node', process.argv[1], 'id'.green)
-    printSupportedMarkets ()
+    printSupportedExchanges ()
 }
 
 let printSymbols = async (id) => {
 
     // check if the exchange is supported by ccxt
-    let marketFound = ccxt.markets.indexOf (id) > -1
-    if (marketFound) {
-        
-        log ('Instantiating', id.green, 'exchange market')
+    let exchangeFound = ccxt.exchanges.indexOf (id) > -1
+    if (exchangeFound) {
+
+        log ('Instantiating', id.green, 'exchange')
+
+        // set up keys and settings, if any
+        const keysGlobal = 'keys.json'
+        const keysLocal = 'keys.local.json'
+
+        let keysFile = fs.existsSync (keysLocal) ? keysLocal : (fs.existsSync (keysGlobal) ? keysGlobal : false)
+        let settings = keysFile ? (require ('../../' + keysFile)[id] || {}) : {}
 
         // instantiate the exchange by id
-        let market = new ccxt[id] ()
+        let exchange = new ccxt[id] (ccxt.extend ({
+            verbose,
+            // 'proxy': 'https://cors-anywhere.herokuapp.com/',
+            // 'proxy': 'https://crossorigin.me/',
+        }, settings))
 
-        // load all products from the exchange
-        let products = await market.loadProducts ()
+        // Object.assign (exchange, settings)
 
-        // output a list of all product symbols
-        log (id.green, 'has', market.symbols.length, 'symbols:', market.symbols.join (', ').yellow)
+        // load all markets from the exchange
+        let markets = await exchange.loadMarkets ()
 
-        // make a table of all products
-        let table = asTable.configure ({ delimiter: ' | ' }) (Object.values (products))
-        log (table) 
+        // debug log
+        if (debug)
+            Object.values (markets).forEach (market => log (market))
+
+        log ("\nSymbols:\n")
+
+        // make a table of all markets
+
+        const marketsList =
+            ccxt.sortBy (Object.values (markets), 'symbol')
+                .map (market =>
+                    ccxt.omit (market, [ 'info', 'limits', 'precision', 'fees' ]))
+
+        let table = asTable (marketsList)
+        log (table)
+
+        log ("\n---------------------------------------------------------------")
+
+        log ("\nCurrencies:\n")
+
+        // make a table of all currencies
+
+        const currenciesList =
+            ccxt.sortBy (Object.values (exchange.currencies), 'code')
+                .map (currency =>
+                    ccxt.omit (currency, [ 'info', 'limits' ]))
+
+        const currenciesTable = asTable (currenciesList)
+        log (currenciesTable)
+
+        log ("\n---------------------------------------------------------------")
+
+        // output a summary
+        log (id.green, 'has', exchange.symbols.length.toString ().yellow, 'symbols and',
+            Object.keys (exchange.currencies).length.toString ().yellow, "currencies\n")
 
     } else {
 
-        log ('Market ' + id.red + ' not found')
-        printSupportedMarkets ()
+        log ('Exchange ' + id.red + ' not found')
+        printSupportedExchanges ()
     }
 }
 
-(async function main () {
+;(async function main () {
 
     if (process.argv.length > 2) {
 
