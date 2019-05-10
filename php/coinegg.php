@@ -30,6 +30,7 @@ class coinegg extends Exchange {
                 'www' => 'https://www.coinegg.com',
                 'doc' => 'https://www.coinegg.com/explain.api.html',
                 'fees' => 'https://www.coinegg.com/fee.html',
+                'referral' => 'http://www.coinegg.com/user/register?invite=523218',
             ),
             'api' => array (
                 'web' => array (
@@ -151,7 +152,7 @@ class coinegg extends Exchange {
         ));
     }
 
-    public function fetch_markets () {
+    public function fetch_markets ($params = array ()) {
         $quoteIds = $this->options['quoteIds'];
         $result = array ();
         for ($b = 0; $b < count ($quoteIds); $b++) {
@@ -502,7 +503,7 @@ class coinegg extends Exchange {
         return array ( 'url' => $url, 'method' => $method, 'body' => $body, 'headers' => $headers );
     }
 
-    public function handle_errors ($code, $reason, $url, $method, $headers, $body) {
+    public function handle_errors ($code, $reason, $url, $method, $headers, $body, $response) {
         // checks against error codes
         if (gettype ($body) !== 'string')
             return;
@@ -510,7 +511,6 @@ class coinegg extends Exchange {
             return;
         if ($body[0] !== '{')
             return;
-        $response = json_decode ($body, $as_associative_array = true);
         // private endpoints return the following structure:
         // array ("$result":true,"data":{...)} - success
         // array ("$result":false,"$code":"103") - failure

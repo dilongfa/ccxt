@@ -13,7 +13,7 @@ class bitstamp1 (Exchange):
     def describe(self):
         return self.deep_extend(super(bitstamp1, self).describe(), {
             'id': 'bitstamp1',
-            'name': 'Bitstamp v1',
+            'name': 'Bitstamp',
             'countries': ['GB'],
             'rateLimit': 1000,
             'version': 'v1',
@@ -90,7 +90,9 @@ class bitstamp1 (Exchange):
         timestamp = int(ticker['timestamp']) * 1000
         vwap = self.safe_float(ticker, 'vwap')
         baseVolume = self.safe_float(ticker, 'volume')
-        quoteVolume = baseVolume * vwap
+        quoteVolume = None
+        if baseVolume is not None and vwap is not None:
+            quoteVolume = baseVolume * vwap
         last = self.safe_float(ticker, 'last')
         return {
             'symbol': symbol,
